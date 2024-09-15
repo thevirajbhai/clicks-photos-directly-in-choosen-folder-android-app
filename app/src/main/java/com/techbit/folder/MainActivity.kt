@@ -41,6 +41,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onBackPressed() {
+        // Handle back press to navigate to parent directory instead of exiting the app
+        if (!navigateToParentDirectory()) {
+            super.onBackPressed() // Call default behavior if there is no parent directory
+        }
+    }
+
     private fun registerActivityResultLaunchers() {
         manageAllFilesPermissionLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
@@ -135,11 +142,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun navigateToParentDirectory() {
+    private fun navigateToParentDirectory(): Boolean {
         val parentDir = currentPath.value.parentFile
-        if (parentDir != null && parentDir.exists()) {
+        return if (parentDir != null && parentDir.exists()) {
             currentPath.value = parentDir
             folderList.value = getListOfFolders() // Refresh the folder list
+            true // Indicate that navigation to parent directory was successful
+        } else {
+            false // Indicate that there is no parent directory
         }
     }
 }
