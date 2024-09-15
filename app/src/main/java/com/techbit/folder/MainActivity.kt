@@ -33,7 +33,9 @@ class MainActivity : ComponentActivity() {
     private val folderList = mutableStateOf<List<String>>(emptyList())
     private val rootPath = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "MyAlbums")
     private val currentPath = mutableStateOf(rootPath)
-    private var currentPhotoPath: String? = null
+    private var currentMediaPath: String? = null
+
+    private val REQUEST_CODE_CAPTURE_MEDIA = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,13 +51,12 @@ class MainActivity : ComponentActivity() {
                 onFolderClick = { folder -> updateCurrentPath(folder) },
                 onBackPress = { navigateToParentDirectory() },
                 onOpenInGallery = { folderName -> openFolderInFileManager(File(currentPath.value, folderName)) },
-                onOpenCamera = { folderName -> openCameraInFolder(File(currentPath.value, folderName)) } // New
+                onOpenCamera = { folderName -> openCameraInFolder(File(currentPath.value, folderName)) } // Updated
             )
         }
     }
 
     override fun onBackPressed() {
-        // Navigate to parent directory or call super if already at root
         if (!navigateToParentDirectory()) {
             super.onBackPressed()
         }
@@ -83,14 +84,13 @@ class MainActivity : ComponentActivity() {
 
         cameraResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
-                Toast.makeText(this, "Photo captured successfully", Toast.LENGTH_SHORT).show()
-                currentPhotoPath?.let { photoPath ->
-                    val photoFile = File(photoPath)
-                    if (photoFile.exists()) {
-                        scanFile(photoFile) // Scan the file after capture
-                        Toast.makeText(this, "Image saved to: $photoPath", Toast.LENGTH_SHORT).show()
+                currentMediaPath?.let { mediaPath ->
+                    val mediaFile = File(mediaPath)
+                    if (mediaFile.exists()) {
+                        scanFile(mediaFile) // Scan the file after capture
+                        Toast.makeText(this, "Media saved to: $mediaPath", Toast.LENGTH_SHORT).show()
                     } else {
-                        Toast.makeText(this, "Failed to find image file", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Failed to find media file", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -173,7 +173,6 @@ class MainActivity : ComponentActivity() {
 
     private fun navigateToParentDirectory(): Boolean {
         val parentDir = currentPath.value.parentFile
-        // Prevent navigation beyond the root directory
         return if (parentDir != null && parentDir.exists() && currentPath.value.canonicalPath != rootPath.canonicalPath) {
             currentPath.value = parentDir
             folderList.value = getListOfFolders() // Refresh the folder list
@@ -182,16 +181,14 @@ class MainActivity : ComponentActivity() {
             false // Indicate that there is no parent directory or can't navigate beyond root
         }
     }
+
     private fun openFolderInFileManager(folder: File) {
         if (folder.exists() && folder.isDirectory) {
-            // Notify the media scanner about all files in the directory
             folder.listFiles()?.forEach { file ->
                 MediaScannerConnection.scanFile(this, arrayOf(file.absolutePath), null) { path, uri ->
-                    // Optionally, handle the result here if needed
                 }
             }
 
-            // Create an intent to view the folder
             val uri: Uri = FileProvider.getUriForFile(
                 this@MainActivity,
                 "${packageName}.fileprovider",
@@ -199,18 +196,15 @@ class MainActivity : ComponentActivity() {
             )
 
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "*/*") // MIME type for directories
-                // Use wildcard MIME type to let apps decide how to handle it
+                setDataAndType(uri, "*/*")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) // Ensure the activity starts in a new task
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
 
-            // Create a chooser intent to display a list of file managers
             val chooserIntent = Intent.createChooser(intent, "Open folder with").apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
 
-            // Try to start the activity
             try {
                 startActivity(chooserIntent)
             } catch (e: Exception) {
@@ -221,35 +215,47 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
-
     private fun openCameraInFolder(folder: File) {
-        val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
-            val photoFile = createImageFile(folder)
-            val photoUri: Uri = FileProvider.getUriForFile(
-                this@MainActivity,
-                "com.techbit.folder.fileprovider",
-                photoFile
-            )
-            putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            scanFile(photoFile)
-        }
-        cameraResultLauncher.launch(cameraIntent)
-    }
+        val imageFile = createMediaFile(folder, "jpg")
+        val videoFile = createMediaFile(folder, "mp4")
 
-    private fun createImageFile(folder: File): File {
-        val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        return File(folder, "IMG_$timeStamp.jpg")
-    }
-    private fun scanFile(file: File) {
-        MediaScannerConnection.scanFile(
+        val imageUri: Uri = FileProvider.getUriForFile(
             this,
-            arrayOf(file.absolutePath),
-            null
-        ) { path, uri ->
-            Log.d("MainActivity", "Scanned $path:$uri")
+            "com.techbit.folder.fileprovider",
+            imageFile
+        )
+
+        val videoUri: Uri = FileProvider.getUriForFile(
+            this,
+            "com.techbit.folder.fileprovider",
+            videoFile
+        )
+
+        val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+            putExtra(MediaStore.EXTRA_OUTPUT, imageUri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
+
+        val videoIntent = Intent(MediaStore.ACTION_VIDEO_CAPTURE).apply {
+            putExtra(MediaStore.EXTRA_OUTPUT, videoUri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        val chooserIntent = Intent.createChooser(cameraIntent, "Capture Media").apply {
+            putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(videoIntent))
+        }
+
+        cameraResultLauncher.launch(chooserIntent)
     }
 
+    private fun createMediaFile(folder: File, extension: String): File {
+        val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val fileName = "MEDIA_${timeStamp}.$extension"
+        return File(folder, fileName)
+    }
+
+    private fun scanFile(file: File) {
+        MediaScannerConnection.scanFile(this, arrayOf(file.absolutePath), null) { path, uri ->
+        }
+    }
 }
