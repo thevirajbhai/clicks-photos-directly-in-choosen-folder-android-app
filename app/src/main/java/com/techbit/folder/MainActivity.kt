@@ -37,15 +37,16 @@ class MainActivity : ComponentActivity() {
                 onCreateFolder = { name -> createFolder(name) },
                 requestStorageAccess = ::requestStorageAccess,
                 onFolderClick = { folder -> updateCurrentPath(folder) },
-                onBackPress = { navigateToParentDirectory() }
+                onBackPress = { navigateToParentDirectory() },
+                onOpenInGallery = { folderName -> openFolderInGallery(File(currentPath.value, folderName)) }
             )
         }
     }
 
     override fun onBackPressed() {
-        // Handle back press to navigate to parent directory instead of exiting the app
+        // Navigate to parent directory or call super if already at root
         if (!navigateToParentDirectory()) {
-            super.onBackPressed() // Call default behavior if there is no parent directory
+            super.onBackPressed()
         }
     }
 
@@ -145,16 +146,24 @@ class MainActivity : ComponentActivity() {
 
     private fun navigateToParentDirectory(): Boolean {
         val parentDir = currentPath.value.parentFile
-        val rootPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-
-        return if (parentDir != null && parentDir.exists() && parentDir.canonicalPath != rootPath.canonicalPath) {
-            // Navigate to parent directory if it's not the rootPath (DCIM)
+        // Prevent navigation beyond the root directory
+        return if (parentDir != null && parentDir.exists() && currentPath.value.canonicalPath != rootPath.canonicalPath) {
             currentPath.value = parentDir
             folderList.value = getListOfFolders() // Refresh the folder list
-            true // Indicate that navigation to parent directory was successful
+            true // Indicate that navigation to the parent directory was successful
         } else {
-            false // Indicate that there is no parent directory
+            false // Indicate that there is no parent directory or can't navigate beyond root
         }
     }
 
+    private fun openFolderInGallery(folder: File) {
+        val intent = Intent(Intent.ACTION_VIEW)
+        intent.setDataAndType(Uri.fromFile(folder), "resource/folder")
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) // Grant permission to the URI
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "No Gallery app found to open this folder", Toast.LENGTH_SHORT).show()
+        }
+    }
 }

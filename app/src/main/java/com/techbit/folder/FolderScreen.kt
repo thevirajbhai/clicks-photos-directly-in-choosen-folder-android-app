@@ -6,19 +6,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,7 +25,8 @@ fun FolderScreen(
     onCreateFolder: (String) -> Unit,
     requestStorageAccess: () -> Unit,
     onFolderClick: (String) -> Unit,
-    onBackPress: () -> Unit
+    onBackPress: () -> Unit,
+    onOpenInGallery: (String) -> Unit
 ) {
     val showFolderDialog = remember { mutableStateOf(false) }
     var folderName by remember { mutableStateOf("") }
@@ -66,7 +63,11 @@ fun FolderScreen(
         ) {
             LazyColumn {
                 items(folderList) { folder ->
-                    FolderItem(folderName = folder, onClick = { onFolderClick(folder) })
+                    FolderItem(
+                        folderName = folder,
+                        onClick = { onFolderClick(folder) },
+                        onOpenInGallery = { onOpenInGallery(folder) }
+                    )
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -108,7 +109,7 @@ fun FolderScreen(
 }
 
 @Composable
-fun FolderItem(folderName: String, onClick: () -> Unit) {
+fun FolderItem(folderName: String, onClick: () -> Unit, onOpenInGallery: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -123,5 +124,11 @@ fun FolderItem(folderName: String, onClick: () -> Unit) {
             fontSize = 18.sp,
             color = Color(0xFF000000)
         )
+        Button(
+            onClick = { onOpenInGallery() },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6200EE))
+        ) {
+            Text(text = "Open in Gallery", color = Color.White)
+        }
     }
 }
