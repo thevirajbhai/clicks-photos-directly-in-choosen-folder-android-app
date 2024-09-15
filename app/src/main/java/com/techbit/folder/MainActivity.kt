@@ -22,7 +22,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var manageAllFilesPermissionLauncher: ActivityResultLauncher<Intent>
     private lateinit var storagePermissionsLauncher: ActivityResultLauncher<Array<String>>
     private val folderList = mutableStateOf<List<String>>(emptyList())
-    private val currentPath = mutableStateOf<File>(Environment.getExternalStorageDirectory())
+    private val rootPath = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "MyAlbums")
+    private val currentPath = mutableStateOf(rootPath)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -144,7 +145,10 @@ class MainActivity : ComponentActivity() {
 
     private fun navigateToParentDirectory(): Boolean {
         val parentDir = currentPath.value.parentFile
-        return if (parentDir != null && parentDir.exists()) {
+        val rootPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
+
+        return if (parentDir != null && parentDir.exists() && parentDir.canonicalPath != rootPath.canonicalPath) {
+            // Navigate to parent directory if it's not the rootPath (DCIM)
             currentPath.value = parentDir
             folderList.value = getListOfFolders() // Refresh the folder list
             true // Indicate that navigation to parent directory was successful
@@ -152,4 +156,5 @@ class MainActivity : ComponentActivity() {
             false // Indicate that there is no parent directory
         }
     }
+
 }
