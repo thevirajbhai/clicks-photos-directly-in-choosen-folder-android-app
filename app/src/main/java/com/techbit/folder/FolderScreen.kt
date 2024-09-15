@@ -1,32 +1,35 @@
 package com.techbit.folder
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
+import java.io.File
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FolderScreen(
     folderList: List<String>,
+    currentPath: File,
     onCreateFolder: (String) -> Unit,
-    requestStorageAccess: () -> Unit
+    requestStorageAccess: () -> Unit,
+    onFolderClick: (String) -> Unit,
+    onBackPress: () -> Unit
 ) {
     val showFolderDialog = remember { mutableStateOf(false) }
     var folderName by remember { mutableStateOf("") }
@@ -36,9 +39,22 @@ fun FolderScreen(
     }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(currentPath.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                navigationIcon = {
+                    if (currentPath.parentFile != null) {
+                        IconButton(onClick = onBackPress) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.smallTopAppBarColors(containerColor = Color(0x949C27B0)) // Customize color
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = { showFolderDialog.value = true }) {
-                Text("+")
+                Icon(Icons.Filled.Add, contentDescription = "Create Folder")
             }
         }
     ) { innerPadding ->
@@ -50,7 +66,7 @@ fun FolderScreen(
         ) {
             LazyColumn {
                 items(folderList) { folder ->
-                    Text(text = folder, modifier = Modifier.padding(vertical = 4.dp))
+                    FolderItem(folderName = folder, onClick = { onFolderClick(folder) })
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -64,7 +80,8 @@ fun FolderScreen(
                     TextField(
                         value = folderName,
                         onValueChange = { folderName = it },
-                        label = { Text("Folder Name") }
+                        label = { Text("Folder Name") },
+                        singleLine = true
                     )
                 },
                 confirmButton = {
@@ -87,5 +104,24 @@ fun FolderScreen(
                 }
             )
         }
+    }
+}
+
+@Composable
+fun FolderItem(folderName: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clickable { onClick() }
+            .background(Color(0xFFDDDDDD))
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = folderName,
+            fontSize = 18.sp,
+            color = Color(0xFF000000)
+        )
     }
 }

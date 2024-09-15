@@ -22,6 +22,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var manageAllFilesPermissionLauncher: ActivityResultLauncher<Intent>
     private lateinit var storagePermissionsLauncher: ActivityResultLauncher<Array<String>>
     private val folderList = mutableStateOf<List<String>>(emptyList())
+    private val currentPath = mutableStateOf<File>(Environment.getExternalStorageDirectory())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,8 +32,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             FolderScreen(
                 folderList = folderList.value,
+                currentPath = currentPath.value,
                 onCreateFolder = { name -> createFolder(name) },
-                requestStorageAccess = ::requestStorageAccess
+                requestStorageAccess = ::requestStorageAccess,
+                onFolderClick = { folder -> updateCurrentPath(folder) },
+                onBackPress = { navigateToParentDirectory() }
             )
         }
     }
@@ -87,21 +91,27 @@ class MainActivity : ComponentActivity() {
         Toast.makeText(this, "Storage Permission Granted", Toast.LENGTH_SHORT).show()
         folderList.value = getListOfFolders()
     }
+
     private fun onPermissionDenied() {
         Toast.makeText(this, "Storage Permission Denied", Toast.LENGTH_SHORT).show()
     }
+
     private fun getListOfFolders(): List<String> {
-        val parentDir = Environment.getExternalStorageDirectory()
-        return if (parentDir.isDirectory) {
-            parentDir.listFiles()?.filter { it.isDirectory }?.map { it.name } ?: emptyList()
-        } else {
-            emptyList()
+        val parentDir = currentPath.value
+        val folderList = mutableListOf<String>()
+        if (parentDir.isDirectory) {
+            parentDir.listFiles()?.forEach { file ->
+                if (file.isDirectory) {
+                    folderList.add(file.name)
+                }
+            }
         }
+        return folderList
     }
+
     private fun createFolder(folderName: String) {
         if (folderName.isNotEmpty()) {
-            val parentDir = Environment.getExternalStorageDirectory()
-            val newFolder = File(parentDir, folderName)
+            val newFolder = File(currentPath.value, folderName)
             if (!newFolder.exists()) {
                 if (newFolder.mkdirs()) {
                     Toast.makeText(this, "Folder created successfully", Toast.LENGTH_SHORT).show()
@@ -114,6 +124,22 @@ class MainActivity : ComponentActivity() {
             }
         } else {
             Toast.makeText(this, "Folder name cannot be empty", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun updateCurrentPath(folderName: String) {
+        val newPath = File(currentPath.value, folderName)
+        if (newPath.isDirectory) {
+            currentPath.value = newPath
+            folderList.value = getListOfFolders() // Refresh the folder list
+        }
+    }
+
+    private fun navigateToParentDirectory() {
+        val parentDir = currentPath.value.parentFile
+        if (parentDir != null && parentDir.exists()) {
+            currentPath.value = parentDir
+            folderList.value = getListOfFolders() // Refresh the folder list
         }
     }
 }
