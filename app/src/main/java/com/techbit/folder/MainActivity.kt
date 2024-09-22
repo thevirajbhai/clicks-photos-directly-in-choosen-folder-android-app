@@ -31,11 +31,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var cameraResultLauncher: ActivityResultLauncher<Intent>
 
     private val rootPath =
-        File(Environment.getExternalStorageDirectory(), "MyAlbum") // New root path
+        File(Environment.getExternalStorageDirectory(), "Photos") // New root path
 
     private val currentPath = mutableStateOf(rootPath)
     private val folderList = mutableStateOf<List<String>>(emptyList())
-    private val imageList = mutableStateOf<List<String>>(emptyList())
 
     private lateinit var currentPhotoFile: File
 
@@ -50,8 +49,6 @@ class MainActivity : ComponentActivity() {
                 currentPath = currentPath.value,
                 rootPath = rootPath, // Pass the rootPath
                 folderList = folderList.value,
-                imageList = imageList.value,
-                onCreateFolder = ::createFolder,
                 requestStorageAccess = ::requestStorageAccess,
                 onFolderClick = ::updateCurrentPath,
                 onBackPress = ::navigateToParentDirectory,
@@ -65,7 +62,7 @@ class MainActivity : ComponentActivity() {
                 },
                 onOpenCamera2 = { openCameraInFolder(currentPath.value) },
                 onDeleteFolder = ::deleteFolder,
-                onDeleteImage = { imagePath -> onDelteImage(imagePath) },
+                onCreateFolder = ::createFolder,
                 openFolder = { folderPath -> openFileManager(folderPath) }
             )
         }
@@ -78,14 +75,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun onDelteImage(imagePath: String) {
-        val file = File(imagePath)
-        if (file.exists()) {
-            file.delete()
-            imageList.value = getImagesFromFolder()
-            scanFile(this, file = file)
-        }
-    }
 
     private fun registerActivityResultLaunchers() {
         manageAllFilesPermissionLauncher = registerForActivityResult(
@@ -110,8 +99,8 @@ class MainActivity : ComponentActivity() {
         cameraResultLauncher =
             registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
                 if (result.resultCode == RESULT_OK) {
-                    Toast.makeText(this, "Photo captured successfully", Toast.LENGTH_SHORT).show()
-                    imageList.value = getImagesFromFolder()
+
+                    Toast.makeText(this, " photo successfully captured in\n ${currentPhotoFile.parentFile?.name}/${currentPhotoFile.name}", Toast.LENGTH_SHORT).show()
                     scanFile(this, file = currentPhotoFile)
                 }
             }
@@ -172,8 +161,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun onPermissionGranted() {
-        Toast.makeText(this, "Storage Permission Granted", Toast.LENGTH_SHORT).show()
-        getList()
+        if (!rootPath.exists()){
+            rootPath.mkdirs()
+        }
+        folderList.value = getListOfFolders()
     }
 
     private fun onPermissionDenied() {
@@ -193,21 +184,6 @@ class MainActivity : ComponentActivity() {
         return folderList
     }
 
-    private fun getImagesFromFolder(): List<String> {
-        return currentPath.value.listFiles { file ->
-            file.extension in listOf(
-                "jpg",
-                "jpeg",
-                "png",
-                "gif"
-            )
-        }?.map { it.absolutePath } ?: emptyList()
-    }
-
-    private fun getList() {
-        folderList.value = getListOfFolders()
-        imageList.value = getImagesFromFolder()
-    }
 
     private fun createFolder(folderName: String) {
         if (folderName.isNotEmpty()) {
@@ -239,7 +215,6 @@ class MainActivity : ComponentActivity() {
         if (newPath.isDirectory) {
             currentPath.value = newPath
             folderList.value = getListOfFolders() // Refresh the folder list
-            imageList.value = getImagesFromFolder() // Update the image list
         }
     }
 
@@ -248,7 +223,6 @@ class MainActivity : ComponentActivity() {
         return if (parentDir != null && parentDir.exists() && currentPath.value.canonicalPath != rootPath.canonicalPath) {
             currentPath.value = parentDir
             folderList.value = getListOfFolders() // Refresh the folder list
-            imageList.value = getImagesFromFolder() // Update the image list
             true // Indicate that navigation to the parent directory was successful
         } else {
             false // Indicate that there is no parent directory or can't navigate beyond root
